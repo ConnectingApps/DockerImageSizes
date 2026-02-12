@@ -1,0 +1,22 @@
+# ===== Build stage (.NET) =====
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY NativeDemo.csproj .
+RUN dotnet restore
+COPY Program.cs .
+RUN dotnet publish -c Release -o /app
+
+# ===== Extract libuuid from Ubuntu =====
+FROM ubuntu:22.04 AS uuidstage
+RUN apt update && apt install -y libuuid1
+
+# ===== Runtime stage =====
+FROM mcr.microsoft.com/dotnet/runtime:8.0-jammy-chiseled
+
+WORKDIR /app
+COPY --from=build /app .
+
+# Kopieer libuuid en afhankelijkheden
+COPY --from=uuidstage /usr/lib/x86_64-linux-gnu/libuuid.so.1 /usr/lib/
+
+ENTRYPOINT ["dotnet", "NativeDemo.dll"]
